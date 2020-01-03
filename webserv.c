@@ -36,6 +36,45 @@ return -1;
 return listen_sock;
 }
 
+
+void sigchld_handler(int sig){
+    while(waitpid(-1,0,WNOHANG)>0);
+    return;
+}
+
+int main(int argc,char **argv)
+{
+    int listen_sock,conn_sock,port,clientlen;
+    struct sockaddr_in clientaddr;
+    
+/*检查输入的命令数*/
+if(argc!=2){
+fprintf(stderr,"usage:%s<port>\n",argv[0]);
+exit(1);
+}
+
+     signal(SIGCHLD,sigchld_handler);   
+
+
+port = atoi(argv[1]);
+
+listen_sock=open_listen_sock(port);
+while(1){
+    clientlen = sizeof(clientaddr);
+    conn_sock = accept(listen_sock,(SA*)&clientaddr,&clientlen);
+    if(fork()==0)/*子进程运行*/
+      {
+         close(listen_sock);  /*child process closes its listening socket*/
+         process_trans(conn_sock); /*Child process services client*/
+         close(conn_sock);     /*Child process closes connection with client*/
+        /* sleep(5);*/
+         exit(0);              /*Child process exits*/
+      }
+    close(conn_sock);   /*Parent closes connected socket(important!)*/
+         }
+}
+
+
 void process_trans(int fd);
 int is_static(char *uri);
 void parse_static_uri(char *uri,char *filename);
