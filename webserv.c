@@ -63,6 +63,53 @@ void feed_static(int fd,char *filename,int filesize)
 	munmap(srcp,filesize);
 }
 
+void parse_dynamic_uri(char *uri,char *filename,char *cgiargs)
+{
+	char *ptr;
+	ptr = index(uri,'?');
+	if(ptr){
+		strcpy(cgiargs,ptr+1);
+		*ptr='\0';
+	}
+	else
+		strcpy(cgiargs,"");
+	strcpy(filename,".");
+	strcat(filename,uri);
+}
+void feed_dynamic(int fd,char *filename,char *cgiargs,char *method,int contentlength)
+{
+   char buf[MAXLINE], *emptylist[] = { NULL },b[MAXLINE];
+
+    sprintf(buf, "HTTP/1.0 200 OK\r\n");
+    write(fd, buf, strlen(buf));
+    sprintf(buf, "Server: Group28 Web Server\r\n");
+    write(fd, buf, strlen(buf));
+
+    if (fork() == 0) { /* child */
+/*handle POST method*/
+if (strcasecmp(method, "POST") == 0) {
+int pfd[2];
+int rc = pipe(pfd);
+if (rc < 0) {
+perror("pipe in POST failed");
+exit(1);
+}
+int post_pid = fork();
+if (post_pid == 0) {
+close(pfd[0]);
+int n = 0, bytes_read = 0;
+/*only read length of "content_length"*/
+while (n < contentlength) {
+bytes_read = read(fd, buf, sizeof(buf)+1);
+printf("content read: %s \n", buf);
+if (bytes_read > 0) {
+write(pfd[1], buf, bytes_read+1);
+n += bytes_read;
+}
+}
+exit(0);
+}
+
 void get_filetype(char *filename,char *filetype)
 {
 	if(strstr(filename,".html"))
