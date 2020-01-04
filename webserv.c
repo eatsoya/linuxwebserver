@@ -42,6 +42,75 @@ void sigchld_handler(int sig){
     return;
 }
 
+
+/* read headers and parse "Content-length"*/
+char buf_header[MAXLINE];
+
+while (fgets(buf_header, 150, f) && (strlen(buf_header) > 2)) {
+if (strncasecmp(buf_header, "Content-length:", 15) == 0) {
+contentlength = atoi(buf_header + 15);
+}
+}
+
+static_flag=is_static(uri);
+if(static_flag){
+parse_static_uri(uri,filename);
+strcpy(cgiargs,"");}
+else
+parse_dynamic_uri(uri,filename,cgiargs);
+
+if(stat(filename,&sbuf)<0){
+error_request(fd,filename,"404","NOT found","Group28 could not find this file");
+return;
+}
+
+if(static_flag){
+  if(!(S_ISREG(sbuf.st_mode))||!(S_IRUSR&sbuf.st_mode)){
+     error_request(fd,filename,"403","Forboden","Group28 is not permtted to read this file");
+     return;
+  }
+  feed_static(fd,filename,sbuf.st_size);
+ }
+  else{
+     if(!(S_ISREG(sbuf.st_mode))||!(S_IXUSR&sbuf.st_mode)){
+        error_request(fd,filename,"403","Forbiden","Group28 could not run the CGI program");
+        return;
+     }
+     feed_dynamic(fd,filename,cgiargs,method,contentlength);
+   }
+}
+
+
+int is_static(char *uri)
+{
+  if(!strstr(uri,"cgi-bin"))
+  return 1;
+  else
+  return 0;
+}
+
+
+void error_request(int fd,char *cause,char *errnum,char *shortmsg,char *description)
+{
+char buf[MAXLINE],body[MAXBUF];
+
+/*Build the HTTP response body*/
+sprintf(body,"<html><title>error request</title>");
+sprintf(body,"%s<body bgcolor=""ffffff"">\r\n",body);
+sprintf(body,"%s%s:%s\r\n",body,errnum,shortmsg);
+sprintf(body,"%s<p>%s:%s\r\n",body,description,cause);
+sprintf(body,"%s<hr><em>Group28 Web server</em>\r\n",body);
+
+/*Send the HTTP response*/
+sprintf(buf,"HTTP/1.0%s%s\r\n",errnum,shortmsg);
+write(fd,buf,strlen(buf));
+sprintf(buf,"Content-type:text/html\r\n");
+write(fd,buf,strlen(buf));
+sprintf(buf,"Content-length:%d\r\n\r\n",(int)strlen(body));
+write(fd,buf,strlen(buf));
+write(fd,body,strlen(body));
+}
+
 int main(int argc,char **argv)
 {
     int listen_sock,conn_sock,port,clientlen;
