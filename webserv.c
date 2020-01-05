@@ -261,3 +261,20 @@ if(strcasecmp(method,"GET")&&strcasecmp(method,"POST")){
 error_request(fd,method,"501","NOT Implemented","Group28 does not implement this method");
 return;
 }
+
+close(pfd[1]);
+/*redirect to STDIN*/
+dup2(pfd[0],STDIN_FILENO);
+}
+
+/* set CGI vars, only support "QUERY_STRING" and "CONTENT_LENGTH" */
+setenv("QUERY_STRING", cgiargs, 1);
+sprintf(buf, "%d", contentlength);
+sprintf(b, "%d", contentlength);
+setenv("CONTENT_LENGTH", buf,1);
+setenv("LENGTH", b,1);
+dup2(fd, STDOUT_FILENO); /* Redirect stdout to client */
+execve(filename, emptylist, environ); /* Run CGI program */
+}
+wait(NULL); /* Parent waits for and reaps child */
+}
